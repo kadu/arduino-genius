@@ -1,7 +1,5 @@
- #include <Arduino.h>
- #include <SimpleButton.h>
-
-using namespace simplebutton;
+#include <Arduino.h>
+#include "OneButton.h"
 
 #define VERMELHO 1
 #define VERDE    2
@@ -14,25 +12,26 @@ using namespace simplebutton;
 #define notaAzul     800
 #define notaERRO     1100
 
-#define ledVermelho D3
-#define botaoVermelho D4
+#define ledVermelho 12
+#define botaoVermelho 13
 
-#define ledVerde D8
-#define botaoVerde D7
+#define ledVerde 10
+#define botaoVerde 11
 
-#define ledAmarelo D6
-#define botaoAmarelo D5
+#define ledAmarelo 8
+#define botaoAmarelo 9
 
-#define ledAzul D2
-#define botaoAzul D1
+#define ledAzul 6
+#define botaoAzul 7
 
-#define BUZZER D0
+#define BUZZER 5
+
 
 // Controladores dos botoes
-Button* bVermelho = NULL;
-Button* bVerde = NULL;
-Button* bAmarelo = NULL;
-Button* bAzul = NULL;
+OneButton bVermelho(botaoVermelho, true);
+OneButton bVerde(botaoVerde, true);
+OneButton bAmarelo(botaoAmarelo, true);
+OneButton bAzul(botaoAzul, true);
 
 int intervalo=500; //specified in milliseconds
 int musica[30];
@@ -42,6 +41,8 @@ int fase = 1;
 bool estouEsperando = false;
 int botaoFoiPressionado = -1;
 int botaoPressionado = 0;
+
+void(* resetFunc) (void) = 0; 
 
 // Verifica se o usuario clicou no botao esperado, se não for o esperado, da erro e reinicia o MCU
 void verifica() {  
@@ -62,7 +63,7 @@ void verifica() {
     }
     noTone(BUZZER);
     delay(500);
-    ESP.restart();
+    resetFunc();
   }
 }
 
@@ -111,6 +112,39 @@ void play(int COLOR=VERMELHO, int delayTime = intervalo) {
   delay(delayTime);
 }
 
+void vermelhoClick() {
+  Serial.println("bVermelho");        
+  botaoFoiPressionado = VERMELHO;
+  
+  botaoPressionado++;
+  verifica();
+  play(VERMELHO);
+};
+
+void verdeClick() {
+  Serial.println("bVerde");
+  botaoFoiPressionado = VERDE;
+  botaoPressionado++;
+  verifica();
+  play(VERDE);
+};
+
+void amareloClick() {
+  Serial.println("bAmarelo");
+  botaoFoiPressionado = AMARELO;
+  botaoPressionado++;
+  verifica();
+  play(AMARELO);
+};
+
+void azulClick() {
+  Serial.println("bAzul");
+  botaoFoiPressionado = AZUL;
+  botaoPressionado++;
+  verifica();
+  play(AZUL);
+};
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Genius");
@@ -119,51 +153,24 @@ void setup() {
   pinMode(ledVerde, OUTPUT); 
   pinMode(ledAmarelo, OUTPUT); 
   pinMode(ledAzul, OUTPUT); 
-  bVermelho = new ButtonPullup(botaoVermelho);
-  bVerde = new ButtonPullup(botaoVerde);
-  bAmarelo = new ButtonPullup(botaoAmarelo);
-  bAzul = new ButtonPullup(botaoAzul);
 
-  bVermelho->setOnPushed([]() {
-        Serial.println("bVermelho");        botaoFoiPressionado = VERMELHO;
-        // Controladores dos botoes
-        botaoPressionado++;
-        verifica();
-        play(VERMELHO);
-  });
-
-  bVerde->setOnPushed([]() {
-        Serial.println("bVerde");
-        botaoFoiPressionado = VERDE;
-        botaoPressionado++;
-        verifica();
-        play(VERDE);
-  });
-
-  bAmarelo->setOnPushed([]() {
-        Serial.println("bAmarelo");
-        botaoFoiPressionado = AMARELO;
-        botaoPressionado++;
-        verifica();
-        play(AMARELO);
-  });
-
-  bAzul->setOnPushed([]() {
-        Serial.println("bAzul");
-        botaoFoiPressionado = AZUL;
-        botaoPressionado++;
-        verifica();
-        play(AZUL);
-  });
+  bVermelho.attachClick(vermelhoClick);
+  bVerde.attachClick(verdeClick);
+  bAmarelo.attachClick(amareloClick);
+  bAzul.attachClick(azulClick);
+  
+  bVermelho.setDebounceTicks(20);
+  bVerde.setDebounceTicks(20);
+  bAmarelo.setDebounceTicks(20);
+  bAzul.setDebounceTicks(20);
 
   //#Buzzer
   pinMode(BUZZER, OUTPUT);     
-  randomSeed(digitalRead(D0));
+  randomSeed(analogRead(A0));
 
   for (size_t i = 0; i < 30; i++) {
     verificaMusica[i] = -1;
   }
-  
 
   // Inicia jogo
   cria_musica(); 
@@ -195,36 +202,15 @@ void jogo() {
             botaoPressionado = 0;
             delay(50);
         }
-        /*
-
-        if(botaoPressionado == fase) {
-          bool isCorrect = true;          
-          for (int i = 0; i < fase; i++)
-          {
-            if(musica[i] != verificaMusica[i] || !isCorrect) {
-              isCorrect = false;
-            }
-          }
-
-          if(isCorrect) {
-            Serial.println("Acertou");
-            estouEsperando = false;
-            botaoFoiPressionado = -1;
-            fase++;
-            botaoPressionado = 0;
-            delay(50);
-          }
-        }
-        */
       }
   }
   delay(100);
 }
 
 void loop() {
-  bVermelho->update();
-  bVerde->update();
-  bAmarelo->update();
-  bAzul->update();
+  bVermelho.tick();
+  bVerde.tick();
+  bAmarelo.tick();
+  bAzul.tick();
   jogo();
 } 
